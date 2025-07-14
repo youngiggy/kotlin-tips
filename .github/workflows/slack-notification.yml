@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tip_path:
-        description: '알림을 보낼 팁 파일 경로 (예: 01-기본-문법과-타입-시스템/01-null-안전성-안전-호출-연산자.md)'
+        description: '알림을 보낼 팁 파일 경로 (예: tips/01-기본-문법과-타입-시스템/01-null-안전성-안전-호출-연산자.md)'
         required: true
         type: string
 
@@ -44,11 +44,11 @@ jobs:
           echo "All changed files:"
           echo "$CHANGED_FILES"
           
-          # 팁 파일 직접 찾기 (특정 디렉토리 내의 마크다운 파일)
+          # 팁 파일 직접 찾기 (tips 디렉토리 내의 마크다운 파일)
           TIP_FILES=""
           while IFS= read -r file; do
-            # 팁 디렉토리 패턴 확인 (숫자-한글 형식의 디렉토리)
-            if [[ $file == [0-9][0-9]-*/*.md && $file != "README.md" && $file != "plans.md" ]]; then
+            # tips 디렉토리 내의 마크다운 파일만 필터링
+            if [[ $file == tips/*/*.md ]]; then
               TIP_FILES="$TIP_FILES $file"
             fi
           done <<< "$CHANGED_FILES"
