@@ -36,13 +36,6 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo "files=${{ github.event.inputs.tip_path }}" >> $GITHUB_OUTPUT
-          echo "수동 트리거 파일 경로: ${{ github.event.inputs.tip_path }}"
-          ls -la
-          if [ -f "${{ github.event.inputs.tip_path }}" ]; then
-            echo "파일이 존재합니다."
-          else
-            echo "파일이 존재하지 않습니다!"
-          fi
 
       - name: Find new or modified tip files
         id: find-tips
@@ -52,104 +45,76 @@ jobs:
           # 이벤트 타입에 따라 다른 파일 목록 사용
           if [[ "${{ github.event_name }}" == "push" ]]; then
             FILES="${{ steps.changed-files.outputs.all_changed_files }}"
-            echo "푸시 이벤트 파일 목록: $FILES"
           else
             FILES="${{ steps.manual-tip.outputs.files }}"
-            echo "수동 트리거 파일 목록: $FILES"
           fi
           
-          # 디버깅을 위한 출력
-          echo "현재 디렉토리 내용:"
-          ls -la
-          
           for file in $FILES; do
-            echo "처리 중인 파일: $file"
-            
-            if [[ -f "$file" ]]; then
-              echo "파일이 존재합니다."
+            if [[ -f "$file" && $file == *".md" && ($file == *"기본-문법과-타입-시스템"* || $file == *"함수와-람다"* || $file == *"컬렉션과-함수형-프로그래밍"* || $file == *"스코프-함수"* || $file == *"클래스와-객체"* || $file == *"확장-기능"* || $file == *"코루틴-기초"* || $file == *"코루틴-고급"* || $file == *"상호운용성과-도구"* || $file == *"실용적인-팁"*) ]]; then
+              # 파일 내용에서 첫 번째 헤딩 추출
+              HEADING=$(grep -m 1 "^# " "$file" | sed 's/^# //')
               
-              if [[ $file == *".md" ]]; then
-                echo "마크다운 파일입니다."
-                
-                if [[ $file == *"기본-문법과-타입-시스템"* || $file == *"함수와-람다"* || $file == *"컬렉션과-함수형-프로그래밍"* || $file == *"스코프-함수"* || $file == *"클래스와-객체"* || $file == *"확장-기능"* || $file == *"코루틴-기초"* || $file == *"코루틴-고급"* || $file == *"상호운용성과-도구"* || $file == *"실용적인-팁"* ]]; then
-                  echo "팁 파일로 인식됩니다."
-                  
-                  # 파일 이름에서 숫자와 하이픈 제거하고 첫 글자만 대문자로 변환
-                  TIP_NAME=$(basename "$file" .md | sed -E 's/^[0-9]+-//' | sed -E 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
-                  echo "팁 이름: $TIP_NAME"
-                  
-                  # 파일 내용에서 첫 번째 헤딩 추출
-                  HEADING=$(grep -m 1 "^# " "$file" | sed 's/^# //')
-                  echo "헤딩: $HEADING"
-                  
-                  # 파일 경로와 제목 저장
-                  if [ -n "$HEADING" ]; then
-                    TIPS="$TIPS\n• <https://github.com/${{ github.repository }}/blob/main/$file|$HEADING>"
-                  else
-                    TIPS="$TIPS\n• <https://github.com/${{ github.repository }}/blob/main/$file|$TIP_NAME>"
-                  fi
-                else
-                  echo "팁 파일이 아닙니다."
-                fi
+              # 파일 경로와 제목 저장
+              if [ -n "$HEADING" ]; then
+                TIPS="$TIPS• <https://github.com/${{ github.repository }}/blob/main/$file|$HEADING>"
               else
-                echo "마크다운 파일이 아닙니다."
+                # 헤딩이 없으면 파일 이름 사용
+                TIP_NAME=$(basename "$file" .md | sed -E 's/^[0-9]+-//' | sed -E 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+                TIPS="$TIPS• <https://github.com/${{ github.repository }}/blob/main/$file|$TIP_NAME>"
               fi
-            else
-              echo "파일이 존재하지 않습니다!"
             fi
           done
-          
-          echo "최종 팁 목록: $TIPS"
           
           if [ -z "$TIPS" ]; then
             echo "No tip files were found."
             echo "has_tips=false" >> $GITHUB_OUTPUT
           else
             echo "has_tips=true" >> $GITHUB_OUTPUT
-            echo "tips<<EOF" >> $GITHUB_OUTPUT
-            echo -e "$TIPS" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "tips=$TIPS" >> $GITHUB_OUTPUT
           fi
 
-      - name: Debug outputs
+      - name: Create Slack message file
+        if: steps.find-tips.outputs.has_tips == 'true'
         run: |
-          echo "has_tips 값: ${{ steps.find-tips.outputs.has_tips }}"
-          echo "tips 값: ${{ steps.find-tips.outputs.tips }}"
+          cat > slack_message.json << EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "${{ github.event_name == 'push' && '🎉 새로운 Kotlin 팁이 추가되었습니다!' || '📢 오늘의 Kotlin 팁' }}",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${{ steps.find-tips.outputs.tips }}"
+                }
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "<https://github.com/${{ github.repository }}|저장소 방문하기> | <https://github.com/${{ github.repository }}/issues|이슈 제보하기>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
 
       - name: Send notification to Slack
         if: steps.find-tips.outputs.has_tips == 'true'
         uses: slackapi/slack-github-action@v1.23.0
         with:
-          payload: |
-            {
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "${{ github.event_name == 'push' && '🎉 새로운 Kotlin 팁이 추가되었습니다!' || '📢 오늘의 Kotlin 팁을 확인하세요!' }}",
-                    "emoji": true
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "${{ github.event_name == 'push' && '다음 Kotlin 팁이 업데이트되었습니다:' || '오늘의 Kotlin 팁:' }}\n${{ steps.find-tips.outputs.tips }}"
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "<https://github.com/${{ github.repository }}|저장소 방문하기> | <https://github.com/${{ github.repository }}/issues|이슈 제보하기>"
-                  }
-                }
-              ]
-            }
+          payload-file-path: slack_message.json
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

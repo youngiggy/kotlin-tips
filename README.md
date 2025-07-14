@@ -15,7 +15,7 @@ Java 개발자를 위한 Kotlin 데일리 팁 모음입니다. 매일 하나씩 
 1. **GitHub 저장소 Watch**: 이 저장소의 오른쪽 상단에 있는 "Watch" 버튼을 클릭하여 업데이트 알림을 받을 수 있습니다.
 
 2. **Slack 채널 구독**: 아래 링크를 통해 Slack 워크스페이스에 참여하고 `#kotlin-tips` 채널을 구독하세요.
-   [Slack 워크스페이스 참여하기](#) <!-- 여기에 실제 Slack 초대 링크를 추가하세요 -->
+   [Slack 워크스페이스 참여하기](https://vroongcorp.slack.com/archives/C0959B6JGDV) <!-- 여기에 실제 Slack 초대 링크를 추가하세요 -->
 
 ## 목차
 
