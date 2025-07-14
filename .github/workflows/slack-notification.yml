@@ -31,7 +31,7 @@ jobs:
           echo "Current directory:"
           ls -la
 
-      - name: Find tip files from commit message
+      - name: Find tip files from commit
         id: find-tips-from-commit
         if: github.event_name == 'push'
         run: |
@@ -43,19 +43,54 @@ jobs:
           if [[ $COMMIT_MSG == *"tip"* && ($COMMIT_MSG == *"Add"* || $COMMIT_MSG == *"Update"*) ]]; then
             echo "Tip-related commit detected"
             
-            # 최근 커밋에서 추가/수정된 .md 파일 찾기
-            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | grep "\.md$")
-            echo "Changed markdown files: $CHANGED_FILES"
+            # 최근 커밋에서 추가/수정된 모든 파일 찾기
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+            echo "All changed files:"
+            echo "$CHANGED_FILES"
+            
+            # 마크다운 파일만 필터링
+            MD_FILES=$(echo "$CHANGED_FILES" | grep "\.md$")
+            echo "Changed markdown files: $MD_FILES"
             
             # 팁 디렉토리에 있는 파일만 필터링
             TIP_FILES=""
-            for file in $CHANGED_FILES; do
+            for file in $MD_FILES; do
               if [[ $file == *"기본-문법과-타입-시스템"* || $file == *"함수와-람다"* || $file == *"컬렉션과-함수형-프로그래밍"* || $file == *"스코프-함수"* || $file == *"클래스와-객체"* || $file == *"확장-기능"* || $file == *"코루틴-기초"* || $file == *"코루틴-고급"* || $file == *"상호운용성과-도구"* || $file == *"실용적인-팁"* ]]; then
                 if [[ $file != "README.md" && $file != "plans.md" ]]; then
                   TIP_FILES="$TIP_FILES $file"
                 fi
               fi
             done
+            
+            # 팁 파일이 없으면 모든 디렉토리 검색
+            if [[ -z "$TIP_FILES" ]]; then
+              echo "No tip files found in changed files, searching directories..."
+              
+              # 커밋 메시지에서 팁 이름 추출 시도
+              if [[ $COMMIT_MSG =~ .*:\ *(.*) ]]; then
+                TIP_NAME="${BASH_REMATCH[1]}"
+                echo "Extracted tip name: $TIP_NAME"
+                
+                # 디렉토리 내 모든 마크다운 파일 검색
+                for dir in 01-기본-문법과-타입-시스템 02-함수와-람다 03-컬렉션과-함수형-프로그래밍 04-스코프-함수 05-클래스와-객체 06-확장-기능 07-코루틴-기초 08-코루틴-고급 09-상호운용성과-도구 10-실용적인-팁; do
+                  if [[ -d "$dir" ]]; then
+                    for file in "$dir"/*.md; do
+                      if [[ -f "$file" ]]; then
+                        # 파일 내용에서 첫 번째 헤딩 추출
+                        FILE_HEADING=$(grep -m 1 "^# " "$file" | sed 's/^# //')
+                        
+                        # 커밋 메시지의 팁 이름과 파일 헤딩 비교
+                        if [[ "$FILE_HEADING" == *"$TIP_NAME"* || "$TIP_NAME" == *"$FILE_HEADING"* ]]; then
+                          echo "Found matching tip file: $file"
+                          TIP_FILES="$TIP_FILES $file"
+                          break 2
+                        fi
+                      fi
+                    done
+                  fi
+                done
+              fi
+            fi
             
             echo "Tip files: $TIP_FILES"
             echo "tip_files=$TIP_FILES" >> $GITHUB_OUTPUT
