@@ -1,5 +1,7 @@
 # Kotlin Daily Tips
 
+[![Kotlin Tip Notification](https://github.com/youngiggy/kotlin-tips/actions/workflows/slack-notification.yml/badge.svg)](https://github.com/youngiggy/kotlin-tips/actions/workflows/slack-notification.yml)
+
 Java 개발자를 위한 Kotlin 데일리 팁 모음입니다. 매일 하나씩 Kotlin의 특별한 기능과 문법을 소개합니다.
 
 ## 소개
