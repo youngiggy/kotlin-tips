@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tip_path:
-        description: '알림을 보낼 팁 파일 경로 (예: tips/01-기본-문법과-타입-시스템/01-null-안전성-안전-호출-연산자.md)'
+        description: '알림을 보낼 팁 파일 경로 (예: tips/01-basic-syntax-and-type-system/01-null-safety-safe-call-operator.md)'
         required: true
         type: string
 
@@ -39,23 +39,23 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=%B)
           echo "Commit message: $COMMIT_MSG"
           
-          # 최근 커밋에서 추가/수정된 모든 파일 찾기 (따옴표 제거)
-          CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | sed 's/^"//; s/"$//')
+          # 최근 커밋에서 추가/수정된 모든 파일 찾기
+          CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
           echo "All changed files:"
           echo "$CHANGED_FILES"
           
           # 팁 파일 직접 찾기 (tips 디렉토리 내의 마크다운 파일)
           TIP_FILES=""
           
-          # 변경된 파일 목록을 순회하며 팁 파일 찾기 (subshell 문제 해결)
-          while IFS= read -r file; do
+          # 변경된 파일 목록을 순회하며 팁 파일 찾기
+          for file in $CHANGED_FILES; do
             echo "Checking file: $file"
             # tips 디렉토리 내의 마크다운 파일만 필터링
             if [[ "$file" == tips/* && "$file" == *.md ]]; then
               echo "Found tip file: $file"
               TIP_FILES="$TIP_FILES $file"
             fi
-          done <<< "$CHANGED_FILES"
+          done
           
           echo "Tip files: $TIP_FILES"
           
@@ -104,13 +104,21 @@ jobs:
               HEADING=$(grep -m 1 "^# " "$file" | sed 's/^# //')
               echo "Extracted heading: $HEADING"
               
-              # 파일 경로와 제목 저장
+              # 파일 경로와 제목 저장 (개행 추가)
               if [ -n "$HEADING" ]; then
-                TIPS="$TIPS• <https://github.com/${{ github.repository }}/blob/main/$file|$HEADING>"
+                if [ -n "$TIPS" ]; then
+                  TIPS="$TIPS\n• <https://github.com/${{ github.repository }}/blob/main/$file|$HEADING>"
+                else
+                  TIPS="• <https://github.com/${{ github.repository }}/blob/main/$file|$HEADING>"
+                fi
               else
                 # 헤딩이 없으면 파일 이름 사용
                 TIP_NAME=$(basename "$file" .md | sed -E 's/^[0-9]+-//' | sed -E 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
-                TIPS="$TIPS• <https://github.com/${{ github.repository }}/blob/main/$file|$TIP_NAME>"
+                if [ -n "$TIPS" ]; then
+                  TIPS="$TIPS\n• <https://github.com/${{ github.repository }}/blob/main/$file|$TIP_NAME>"
+                else
+                  TIPS="• <https://github.com/${{ github.repository }}/blob/main/$file|$TIP_NAME>"
+                fi
               fi
               echo "Current tips list: $TIPS"
             else
