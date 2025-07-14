@@ -46,18 +46,23 @@ jobs:
           
           # 팁 파일 직접 찾기 (tips 디렉토리 내의 마크다운 파일)
           TIP_FILES=""
-          while IFS= read -r file; do
+          
+          # 변경된 파일 목록을 순회하며 팁 파일 찾기
+          echo "$CHANGED_FILES" | while read -r file; do
+            echo "Checking file: $file"
             # tips 디렉토리 내의 마크다운 파일만 필터링
-            if [[ $file == tips/*/*.md ]]; then
+            if [[ "$file" == tips/* && "$file" == *.md ]]; then
+              echo "Found tip file: $file"
               TIP_FILES="$TIP_FILES $file"
             fi
-          done <<< "$CHANGED_FILES"
+          done
           
           echo "Tip files: $TIP_FILES"
-          echo "tip_files=$TIP_FILES" >> $GITHUB_OUTPUT
           
+          # TIP_FILES가 비어있지 않으면 has_tips=true 설정
           if [[ -n "$TIP_FILES" ]]; then
             echo "has_tips=true" >> $GITHUB_OUTPUT
+            echo "tip_files=$TIP_FILES" >> $GITHUB_OUTPUT
           else
             echo "has_tips=false" >> $GITHUB_OUTPUT
           fi
