@@ -6,6 +6,14 @@ on:
       - main  # 메인 브랜치에 푸시될 때 실행
     paths:
       - '**/*.md'  # 마크다운 파일이 변경될 때만 실행
+  
+  # 수동 트리거 추가
+  workflow_dispatch:
+    inputs:
+      tip_path:
+        description: '알림을 보낼 팁 파일 경로 (예: 01-기본-문법과-타입-시스템/01-null-안전성-안전-호출-연산자.md)'
+        required: true
+        type: string
 
 jobs:
   notify-slack:
@@ -16,18 +24,33 @@ jobs:
         with:
           fetch-depth: 2  # 이전 커밋과 비교하기 위해 필요
 
-      - name: Get changed files
+      - name: Get changed files (for push event)
         id: changed-files
+        if: github.event_name == 'push'
         uses: tj-actions/changed-files@v35
         with:
           files: '**/*.md'  # 마크다운 파일만 확인
+
+      - name: Set tip files for manual trigger
+        id: manual-tip
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "files=${{ github.event.inputs.tip_path }}" >> $GITHUB_OUTPUT
 
       - name: Find new or modified tip files
         id: find-tips
         run: |
           TIPS=""
-          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            if [[ $file == *"기본-문법과-타입-시스템"* || $file == *"함수와-람다"* || $file == *"컬렉션과-함수형-프로그래밍"* || $file == *"스코프-함수"* || $file == *"클래스와-객체"* || $file == *"확장-기능"* || $file == *"코루틴-기초"* || $file == *"코루틴-고급"* || $file == *"상호운용성과-도구"* || $file == *"실용적인-팁"* ]]; then
+          
+          # 이벤트 타입에 따라 다른 파일 목록 사용
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            FILES="${{ steps.changed-files.outputs.all_changed_files }}"
+          else
+            FILES="${{ steps.manual-tip.outputs.files }}"
+          fi
+          
+          for file in $FILES; do
+            if [[ -f "$file" && $file == *".md" && ($file == *"기본-문법과-타입-시스템"* || $file == *"함수와-람다"* || $file == *"컬렉션과-함수형-프로그래밍"* || $file == *"스코프-함수"* || $file == *"클래스와-객체"* || $file == *"확장-기능"* || $file == *"코루틴-기초"* || $file == *"코루틴-고급"* || $file == *"상호운용성과-도구"* || $file == *"실용적인-팁"*) ]]; then
               # 파일 이름에서 숫자와 하이픈 제거하고 첫 글자만 대문자로 변환
               TIP_NAME=$(basename "$file" .md | sed -E 's/^[0-9]+-//' | sed -E 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
               
@@ -44,7 +67,7 @@ jobs:
           done
           
           if [ -z "$TIPS" ]; then
-            echo "No tip files were changed."
+            echo "No tip files were found."
             echo "has_tips=false" >> $GITHUB_OUTPUT
           else
             echo "has_tips=true" >> $GITHUB_OUTPUT
@@ -64,7 +87,7 @@ jobs:
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🎉 새로운 Kotlin 팁이 추가되었습니다!",
+                    "text": "${{ github.event_name == 'push' && '🎉 새로운 Kotlin 팁이 추가되었습니다!' || '📢 오늘의 Kotlin 팁을 확인하세요!' }}",
                     "emoji": true
                   }
                 },
@@ -72,17 +95,8 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "다음 Kotlin 팁이 업데이트되었습니다:\n${{ steps.find-tips.outputs.tips }}"
+                    "text": "${{ github.event_name == 'push' && '다음 Kotlin 팁이 업데이트되었습니다:' || '오늘의 Kotlin 팁:' }}\n${{ steps.find-tips.outputs.tips }}"
                   }
-                },
-                {
-                  "type": "context",
-                  "elements": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "커밋: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${{ github.event.head_commit.message }}>"
-                    }
-                  ]
                 },
                 {
                   "type": "divider"
